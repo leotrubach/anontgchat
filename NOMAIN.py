@@ -19,6 +19,22 @@ bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
 dp = Dispatcher()
 
+
+async def error_no_arg(message: types.Message,command: CommandObject):
+
+    if command.args is None:
+        await message.answer(
+            "Ошибка: не переданы аргументы"
+        )
+        return
+async def error_only_1_word(message: types.Message, args):
+    if len(args) != 1:
+        await message.answer("Название комнаты должен быть из 1 слова ")
+        return
+
+
+
+
 pril = ['Шумные',
 'Шуршащие',
 'Пушистые',
@@ -54,16 +70,11 @@ async def cmd_start(message: types.Message):
 
 @dp.message(Command("create"))
 async def cmd_create(message: types.Message, command: CommandObject):
+    await error_no_arg(message, command)
 
-    if command.args is None:
-        await message.answer(
-            "Ошибка: не переданы аргументы"
-        )
-        return
     args = command.args.split()
-    if len(args) != 1:
-        await message.answer("Название комнаты должен быть из 1 слова ")
-        return
+
+    await error_only_1_word(message, args)
 
     room_name = args[0]
     if room_name in room_members:
@@ -75,17 +86,15 @@ async def cmd_create(message: types.Message, command: CommandObject):
     await message.answer(f"создана комната по имени:{room_name}")
 @dp.message(Command("join"))
 async def cmd_join(message: Message, command: CommandObject):
-    if command.args is None:
-        await message.answer(
-                "Ошибка: не переданы аргументы"
-        )
-        return
+
+    await error_no_arg(message, command)
+
     args = command.args.split()
-    if len(args) != 1:
-        await message.answer("Название комнаты должен быть из 1 слова ")
-        return
+    await error_only_1_word(message, args)
 
     room_name = args[0]
+
+
 
     if room_name not in room_members:
         await message.answer("Нет такой комнаты")
@@ -125,33 +134,6 @@ async def annon_mess(message: Message):
 
         await bot.send_message(user_id,f"{name[message.from_user.id]}: {message.text}")
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#     if message.chat.id not in resend_id:
-#         with open("data", "a") as f:
-#             f.write(f"{message.chat.id}\n")
-#     for r in resend_id:
-#         if r == message.chat.id:
-#             continue
-#         await message.send_copy(chat_id=r)
 
 
 
