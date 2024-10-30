@@ -16,5 +16,4 @@ def generate_nick():
     adj, noun = map(random.choice, random.choice(all_lists))
     return f"{adj} {noun}"
 
-nick = generate_nick()
-print(nick)
+

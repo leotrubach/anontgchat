@@ -13,30 +13,17 @@ from aiogram.filters import Command
 import dotenv
 dotenv.load_dotenv()
 
-TOKEN = "7669873713:AAEuC9-p_WzAE9m_SqfgVOChS64ute25Bvc"
+TOKEN = getenv("BOT_TOKEN")
 
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
 dp = Dispatcher()
-
-
-async def error_no_arg(message: types.Message,command: CommandObject):
-    if command.args is None:
-        await message.answer("Ошибка: не переданы аргументы")
-        return
-async def error_only_1_word(message: types.Message, args):
-    if len(args) != 1:
-        await message.answer("Название комнаты должен быть из 1 слова ")
-        return
-
-
 
 room_members = {}
 
 user_room = {}
 
 name = {}
-
 
 class CommandParseError(Exception):
     def __init__(self, message):
@@ -105,9 +92,8 @@ async def cmd_join(message: Message, command: CommandObject):
     room_members[room_name].add(message.from_user.id)
     user_room[message.from_user.id] = room_name
 
-#сделать нормальные ники
-    from data import nick
-    name[message.from_user.id] = nick
+    from data import generate_nick
+    name[message.from_user.id] = generate_nick()
 
     user_names = []
     for l_user in room_members[room_name]:
@@ -117,12 +103,13 @@ async def cmd_join(message: Message, command: CommandObject):
     full_user_names = ", ".join(user_names)
     if full_user_names == "":
         full_user_names = "Только <b>вы</b>"
-    await message.answer(f"Вы успешно присоединились. Ваше имя: {name[message.from_user.id]}, в комноте есть: {full_user_names}")
+    await message.answer(f"Вы успешно присоединились. Ваше имя: {name[message.from_user.id]}, в комнате есть: {full_user_names}")
 
 
 
     user_id = skip(message)
-    print(user_id)
+
+
     await bot.send_message(user_id, f"К вам присоединился: {name[message.from_user.id]}")
 
 
