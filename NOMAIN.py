@@ -44,6 +44,7 @@ def parse_room_name(command: CommandObject):
         raise CommandParseError("Название комнаты должено быть из 1 слова")
 
     room_name = args[0]
+
     return room_name
 
 
@@ -57,12 +58,14 @@ def validate_parse(wrapped):
     return wrapper
 
 
-def skip(message):
-    for user_id in room_members[user_room[message.from_user.id]]:
-        if user_id == message.from_user.id:
+
+async def send_to_chat(room_name: str, skip_user: int, message: str):
+    for user_id in room_members[room_name]:
+        if user_id == skip_user:
             continue
-        
-    return user_id
+        await bot.send_message(user_id, message)
+    return
+
 
 @dp.message(Command("create"))
 @validate_parse
@@ -81,7 +84,6 @@ async def cmd_create(message: types.Message, command: CommandObject):
 @validate_parse
 async def cmd_join(message: Message, command: CommandObject):
     room_name = parse_room_name(command)
-
     if room_name not in room_members:
         await message.answer("Нет такой комнаты")
         return
@@ -94,34 +96,33 @@ async def cmd_join(message: Message, command: CommandObject):
 
     from data import generate_nick
     name[message.from_user.id] = generate_nick()
-
     user_names = []
     for l_user in room_members[room_name]:
         if l_user == message.from_user.id:
             continue
         user_names.append(name[l_user])
+    user_id = message.from_user.id
     full_user_names = ", ".join(user_names)
     if full_user_names == "":
         full_user_names = "Только <b>вы</b>"
     await message.answer(f"Вы успешно присоединились. Ваше имя: {name[message.from_user.id]}, в комнате есть: {full_user_names}")
 
+    message = f"К вам присоединился: {name[message.from_user.id]}"
 
-
-    user_id = skip(message)
-
-
-    await bot.send_message(user_id, f"К вам присоединился: {name[message.from_user.id]}")
+    await send_to_chat(room_name, user_id, message)
 
 
 @dp.message()
 async def annon_mess(message: Message):
+
+    user_id = message.from_user.id
     if message.from_user.id not in user_room:
         return
+    message = f"{name[message.from_user.id]}: {message.text}"
+
+    await send_to_chat(user_room[user_id], user_id, message)
 
 
-    user_id = skip(message)
-
-    await bot.send_message(user_id,f"{name[message.from_user.id]}: {message.text}")
 
 
 
