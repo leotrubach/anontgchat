@@ -97,10 +97,12 @@ async def cmd_join(message: Message, command: CommandObject):
     from data import generate_nick
     name[message.from_user.id] = generate_nick()
     user_names = []
+
     for l_user in room_members[room_name]:
         if l_user == message.from_user.id:
             continue
         user_names.append(name[l_user])
+
     user_id = message.from_user.id
     full_user_names = ", ".join(user_names)
     if full_user_names == "":
@@ -111,6 +113,13 @@ async def cmd_join(message: Message, command: CommandObject):
 
     await send_to_chat(room_name, user_id, message)
 
+@dp.message(Command("part"))
+async def cmd_part(message: Message):
+    room_members[user_room[message.from_user.id]].remove(message.from_user.id)
+    messege =  f"{name[message.from_user.id]} вышел из комнаты"
+    user_id = message.from_user.id
+    await send_to_chat(user_room[message.from_user.id],user_id, messege)
+    await message.answer("Вы вышли из комноты, теперь вы не состоите ни в какой группе")
 
 @dp.message()
 async def annon_mess(message: Message):
