@@ -77,7 +77,7 @@ async def cmd_create(message: types.Message, command: CommandObject):
         return
 
     room_members[room_name] = set()
-    await message.answer(f"Создана комната по имени:{room_name}")
+    await message.answer(f"Создана комната по имени: {room_name}")
 
 
 @dp.message(Command("join"))
@@ -120,6 +120,26 @@ async def cmd_part(message: Message):
     user_id = message.from_user.id
     await send_to_chat(user_room[message.from_user.id],user_id, messege)
     await message.answer("Вы вышли из комноты, теперь вы не состоите ни в какой группе")
+
+
+
+@dp.message(Command("list"))
+async def cmd_list(message: Message):
+    list_of_message = []
+    for key in room_members.keys():
+        if room_members[key] == set():
+            part_of_message = f"{key}: Пусто"
+        else:
+            l = []
+            for c in room_members[key]:
+                l.append(name[c])
+            str_of_message = ", ".join(l)
+            part_of_message = f"{key}: {str_of_message}"
+        list_of_message.append(part_of_message)
+        full_massage = ", ".join(list_of_message)
+    await message.answer(f"{full_massage}")
+
+
 
 @dp.message()
 async def annon_mess(message: Message):
