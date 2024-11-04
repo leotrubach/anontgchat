@@ -17,192 +17,161 @@ bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
 dp = Dispatcher()
 
-room_members_public = {}
-room_members_private = {}
+room_members = {}
+room_visibility = {}
 user_room = {}
 name = {}
 
-async  def l_user_names(room_name,user_names, message):
-    if room_name in room_members_private:
-        for l_user in room_members_private[room_name]:
-            if l_user == message.from_user.id:
-                return
-            user_names.append(name[l_user])
-    else:
-        for l_user in room_members_public[room_name]:
-            if l_user == message.from_user.id:
-                return
-            user_names.append(name[l_user])
+class CommandParseError(Exception):
+    def __init__(self, message):
+        self.message = message
 
-async def join_add(room_name, message):
-    if room_name in room_members_private:
-        room_members_private[room_name].add(message.from_user.id)
-    else:
-        room_members_public[room_name].add(message.from_user.id)
-
-async def join_remove(message):
-    if message.from_user.id in user_room:
-        name_room = user_room[message.from_user.id]
+def validate_parse(wrapped):
+    async def wrapper(message: types.Message, command: CommandObject):
         try:
-            if room_members_private[name_room] != set():
-                room_members_private[name_room].remove(message.from_user.id)
-        except KeyError:
-            if room_members_public[name_room] != set():
-                room_members_public[name_room].remove(message.from_user.id)
+            await wrapped(message=message, command=command)
+        except CommandParseError as e:
+            await message.answer(e.message)
+    return wrapper
 
-async def error_no_arg(message):
-    await message.answer("Ошибка: не передан(ы) аргумент(ы)")
+def l_user_names(room_name):
+    return [name[user_id] for user_id in room_members[room_name]]
 
-async def acc(access,message,room_name):
-    if access == "private":
-        type_acc = "ЗАКРЫТАЯ"
-        room_members_private[room_name[0]] = set()
-    else:
-        type_acc = "ОТКРЫТАЯ"
-        room_members_public[room_name[0]] = set()
-    await message.answer(f"Создана {type_acc} комната по имени: {room_name[0]}")
+def join_add(room_name: str, user_id: int):
+    room_members[room_name].add(user_id)
 
-async def return_arg(command, message):
-    try:
-        try:
-            room_name, access = command.args.split()
-            await acc(access, message, room_name)
-        except ValueError:
-            room_name = command.args.split()
-            room_members_private[room_name[0]] = set()
-            await message.answer(f"Создана ЗАКРЫТАЯ (по умолчанию) комната по имени : {room_name[0]}")
-    except AttributeError:
-        await error_no_arg(message)
+
+def join_remove(user_id):
+    if user_id in user_room:
+        name_room = user_room[user_id]
+        if room_members[name_room] != set():
+            room_members[name_room].remove(user_id)
+
+def make_create(room_name: str, is_public: bool):
+    if room_name in room_members:
+        raise CommandParseError("Уже есть комната с таким назвванием")
+    room_members[room_name] = set()
+    room_visibility[room_name] = is_public
 
 async def send_to_chat(room_name: str, skip_user: int, message: str):
-    def send_message(user_id,skip_user):
+    for user_id in room_members[room_name]:
         if user_id == skip_user:
-            return
-        bot.send_message(user_id, message)
-
-    if room_name[0] in room_members_public:
-        for user_id in room_members_public[room_name]:
-            send_message(user_id, skip_user)
-        return
-    else:
-        for user_id in room_members_private[room_name]:
-            send_message(user_id, skip_user)
-        return
-
-
-
+            continue
+        await bot.send_message(user_id, message)
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    await message.answer("Привет! Это анонимный чат. "
-                         "\nТы можешь создать открытую /create 'название комнаты' 'public'"
-                         "\nили "
-                         "\nзакрытую /create 'название комнаты' 'ничего/private' комнату для общения."
-                         "\nС помощью /list ты можешь посмотреть ОТКРЫТЫЕ комнаты."
-                         "\nС помощью /part ты можешь выйти из комнаты."
-                         "\nЖелаем хорошо пообщяться :) ")
+    from messages import WELCOME_MESSAGE
+    await message.answer(WELCOME_MESSAGE)
+
+VISIBILITY = {
+    "private": False,
+    "public": True
+}
+
+VISIBILITY_LABELS = {
+    True: "ОТКРЫТАЯ",
+    False: "ЗАКРЫТАЯ"
+}
 
 @dp.message(Command("create"))
+
+@validate_parse
 async def cmd_create(message: types.Message, command: CommandObject):
-    await return_arg(command, message)
+    room_name, *rest = command.args.split()
+
+    if not rest:
+        is_public = False
+    else:
+        if len(rest) != 1 or rest[0] not in VISIBILITY:
+            raise CommandParseError("2 аргумент должен иметь private/public/ПУСТО")
+        is_public = VISIBILITY[rest[0]]
+    
+    make_create(room_name, is_public)
+    await message.answer(f"Создана {VISIBILITY_LABELS[is_public]} комната по имени : {room_name}")
+
 
 @dp.message(Command("join"))
-# @validate_parse
+@validate_parse
 async def cmd_join(message: Message, command: CommandObject):
-    try:
-        try:
-            arg_1, access = command.args.split()
-            room_name = arg_1[0]
 
-        except ValueError:
-            arg_1 = command.args.split()
-            room_name = arg_1[0]
+    room_name, *access = command.args.split()
 
-        if room_name not in room_members_public:
-            if room_name not in room_members_private:
-                await message.answer(f"Нет такой комнаты{room_members_public} {room_members_private}")
-                return
+    if not room_name:
+        raise CommandParseError("Не передан аргкумент")
 
-        await join_remove(message)
-        await join_add(room_name, message)
+    if room_name not in room_members:
+        raise CommandParseError("Нет такой комнаты")
 
-        user_room[message.from_user.id] = room_name
-        from data import generate_nick
-        name[message.from_user.id] = generate_nick()
-        user_names = []
+    user_id = message.from_user.id
 
-        await l_user_names(room_name, user_names, message)
+    join_remove(user_id)
+    join_add(room_name, user_id)
 
-        user_id = message.from_user.id
-        full_user_names = ", ".join(user_names)
+    user_room[user_id] = room_name
+    from data import generate_nick
+    name[user_id] = generate_nick()
+    x  = l_user_names(room_name)
+    full_user_names = ", ".join(x)
+    if len(x) == 1:
+        full_user_names = "Только <b>вы</b>"
 
-        if full_user_names == "":
-            full_user_names = "Только <b>вы</b>"
+    await message.answer(f"Вы успешно присоединились. Ваше имя: {name[user_id]}, в комнате есть: {full_user_names}")
 
-        await message.answer(f"Вы успешно присоединились. Ваше имя: {name[message.from_user.id]}, в комнате есть: {full_user_names}")
+    mess = f"К вам присоединился(ась): {name[user_id]}"
 
-        mess = f"К вам присоединился: {name[message.from_user.id]}"
-
-        await send_to_chat(user_room[user_id], user_id, mess)
-    except AttributeError:
-        await error_no_arg(message)
+    await send_to_chat(user_room[user_id], user_id, mess)
 
 @dp.message(Command("part"))
 async def cmd_part(message: Message):
-    try:
-        room_name_part = user_room[message.from_user.id]
-        try:
-            room_members_public[room_name_part].remove(message.from_user.id)
-        except KeyError:
-            room_members_private[room_name_part].remove(message.from_user.id)
+    user_id = message.from_user.id
 
-        mes = f"{name[message.from_user.id]} вышел из комнаты"
-
-        user_id = message.from_user.id
-
-        await send_to_chat(room_name_part,
-                           user_id,
-                           mes)
-
-        await message.answer("Вы вышли из комноты, теперь вы не состоите ни в какой группе")
-    except KeyError:
+    if user_id not in user_room:
         await message.answer("Вы не в комнате")
+        return
+    room_name_part = user_room[user_id]
+    user_room.pop(user_id)
+    room_members[room_name_part].remove(user_id)
+
+    mes = f"{name[user_id]} вышел(а) из комнаты"
+
+    await send_to_chat(room_name_part, user_id, mes)
+
+    await message.answer("Вы вышли из комноты, теперь вы не состоите ни в какой группе")
 
 @dp.message(Command("list"))
 async def cmd_list(message: Message):
-    try:
-        list_of_message = []
-
-        for key in room_members_public.keys():
-            if room_members_public[key] == set():
+    full_massage = "Нет открытых комнат"
+    list_of_message = []
+    for key in room_members.keys():
+        if room_visibility[key] == True:
+            l = []
+            if room_members[key] == set():
                 part_of_message = f"{key}: Пусто"
             else:
-                l = []
-                for c in room_members_public[key]:
+                for c in room_members[key]:
                     l.append(name[c])
                 str_of_message = ", ".join(l)
                 part_of_message = f"{key}: {str_of_message}"
-
             list_of_message.append(part_of_message)
             full_massage = ", ".join(list_of_message)
 
-        await message.answer(f"{full_massage}")
-    except UnboundLocalError:
-        await message.answer("Нет открытых комнат")
+    await message.answer(full_massage)
 
 @dp.message()
 async def annon_mess(message: Message):
-    if user_room == {}:
-        await message.answer("Вы не в комнате")
-        return
+    if len(user_room)==1:
+        await message.answer("Вы 1 в комнате")
+
     user_id = message.from_user.id
+
     if message.from_user.id not in user_room:
+        await message.answer("Вы не в комнате")
         return
 
     message = f"{name[message.from_user.id]}: {message.text}"
 
     await send_to_chat(user_room[user_id], user_id, message)
-
 
 async def main() -> None:
     await dp.start_polling(bot)
