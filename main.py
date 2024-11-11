@@ -10,10 +10,12 @@ from aiogram.types import Message
 from aiogram.filters import Command
 import dotenv
 
-from package_storage import storage
+from storage.memory import MemoryStorage
 from exceptions import CommandParseError
 from decorators import parse_2_args, parse_1_arg
 from data import VISIBILITY
+from data import VISIBILITY_LABELS
+from storage.memory import MemoryStorage
 
 dotenv.load_dotenv()
 TOKEN = getenv("BOT_TOKEN")
@@ -21,6 +23,14 @@ TOKEN = getenv("BOT_TOKEN")
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
 dp = Dispatcher()
+storage = MemoryStorage()
+
+
+async def send_to_chat(room_name: str, skip_user: int, message: str):
+    for user_id in storage.get_room_members(room_name):
+        if user_id == skip_user:
+            continue
+        await bot.send_message(user_id, message)
 
 
 @dp.message(Command("start"))
@@ -43,8 +53,10 @@ async def cmd_create(message: types.Message, command: CommandObject):
             raise CommandParseError("2-й аргумент должен иметь private/public")
         is_public = VISIBILITY[rest[0]]
     user_id = message.from_user.id
-    access = storage.create(is_public, room_name, user_id)
-    await message.answer(f"Создана {access} комната по имени : {room_name}")
+    storage.create(is_public, room_name, user_id)
+    await message.answer(
+        f"Создана {VISIBILITY_LABELS[is_public]} комната по имени : {room_name}"
+    )
 
 
 @dp.message(Command("join"))
@@ -55,14 +67,19 @@ async def cmd_join(message: Message, command: CommandObject):
         raise CommandParseError("Не передан аргумент")
     room_name, *access = command.args.split()
 
-    full_user_names, nick, room = storage.join(room_name, user_id)
+    nick = storage.join(room_name, user_id)
+    x = storage.list_of_user_names_by_room_name(room_name)
+    full_user_names = ", ".join(x)
+    if len(x) == 1:
+        full_user_names = "Только <b>вы</b>"
+
     await message.answer(
         f"Вы успешно присоединились. Ваш ник: {nick}, в комнате есть: {full_user_names}"
     )
 
     mess = f"К вам присоединился(ась): {nick}"
 
-    await storage.send_to_chat(room, user_id, mess)
+    await send_to_chat(storage.user_room_by_id(user_id), user_id, mess)
 
 
 @dp.message(Command("del"))
@@ -72,7 +89,7 @@ async def delete(message: Message, command: CommandObject):
         raise CommandParseError("Не передан аргумент")
     user_id = message.from_user.id
     room_name, *access = command.args.split()
-    storage.delete(room_name, user_id)
+    storage.delete_room(room_name, user_id)
     await message.answer("Комната успешно удалена")
 
 
@@ -81,26 +98,38 @@ async def delete(message: Message, command: CommandObject):
 async def cmd_part(message: Message):
     user_id = message.from_user.id
 
-    mes, room_name_part = storage.part(user_id)
-    await storage.send_to_chat(room_name_part, user_id, mes)
+    mes = storage.part(user_id)
+    room_name_part = storage.user_room_by_id(user_id)
+    await send_to_chat(room_name_part, user_id, f"{mes} вышел(а) из комнаты")
 
     await message.answer("Вы вышли из комнаты, теперь вы не состоите ни в какой группе")
 
 
 @dp.message(Command("list"))
+@parse_1_arg
 async def cmd_list(message: Message):
-    full_message = storage.list()
-
-    await message.answer(full_message)
+    user_id = message.from_user.id
+    l = storage.list()
+    list_of_message = []
+    str_of_message = ", ".join(l)
+    nick= storage.name(user_id)
+    if storage.name == {}:
+        nick = storage.user_room[user_id]
+    part_of_message = f"{nick}: {str_of_message}"
+    list_of_message.append(part_of_message)
+    full_massage = ", ".join(list_of_message)
+    if full_massage == "":
+        raise CommandParseError("Нет доступных комнат")
+    await message.answer(str_of_message)
 
 
 @dp.message()
 @parse_1_arg
 async def default_handler(message: Message):
     user_id = message.from_user.id
-    part_of_mes, room_name = storage.annon(user_id)
+    part_of_mes = storage.is_user_in_room(user_id)
     message = f"{part_of_mes}: {message.text}"
-    await storage.send_to_chat(room_name, user_id, message)
+    await send_to_chat(storage.user_room_by_id(user_id), user_id, message)
 
 
 async def main() -> None:
