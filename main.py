@@ -10,7 +10,6 @@ from aiogram.types import Message
 from aiogram.filters import Command
 import dotenv
 
-from storage.memory import MemoryStorage
 from exceptions import CommandParseError
 from decorators import parse_2_args, parse_1_arg
 from data import VISIBILITY
@@ -89,7 +88,11 @@ async def delete(message: Message, command: CommandObject):
         raise CommandParseError("Не передан аргумент")
     user_id = message.from_user.id
     room_name, *access = command.args.split()
-    storage.delete_room(room_name, user_id)
+    list_of_id = storage.delete_room(room_name, user_id)
+    for id in list_of_id:
+        if user_id == id:
+            continue
+        await bot.send_message(id, "Комната была удалена создателем")
     await message.answer("Комната успешно удалена")
 
 
@@ -98,8 +101,10 @@ async def delete(message: Message, command: CommandObject):
 async def cmd_part(message: Message):
     user_id = message.from_user.id
 
-    mes = storage.part(user_id)
     room_name_part = storage.user_room_by_id(user_id)
+
+    mes = storage.part(user_id)
+
     await send_to_chat(room_name_part, user_id, f"{mes} вышел(а) из комнаты")
 
     await message.answer("Вы вышли из комнаты, теперь вы не состоите ни в какой группе")
@@ -108,19 +113,11 @@ async def cmd_part(message: Message):
 @dp.message(Command("list"))
 @parse_1_arg
 async def cmd_list(message: Message):
-    user_id = message.from_user.id
     l = storage.list()
-    list_of_message = []
-    str_of_message = ", ".join(l)
-    nick= storage.name(user_id)
-    if storage.name == {}:
-        nick = storage.user_room[user_id]
-    part_of_message = f"{nick}: {str_of_message}"
-    list_of_message.append(part_of_message)
-    full_massage = ", ".join(list_of_message)
-    if full_massage == "":
-        raise CommandParseError("Нет доступных комнат")
-    await message.answer(str_of_message)
+    k = ", ".join(l)
+    if not k:
+        raise CommandParseError("Нет открытых комнат")
+    await message.answer(k)
 
 
 @dp.message()

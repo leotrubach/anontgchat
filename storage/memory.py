@@ -3,11 +3,21 @@ from exceptions import RoomDoesNotExist, RoomAlreadyExists, NotInRoom, NoCreator
 
 
 class MemoryStorage:
+
     def __init__(self):
+        # имя комноты : сет user_id
         self.room_members = {}
+
+        # имя комноты:  открыта или нет
         self.room_visibility = {}
+
+        # user_id : имя комноты
         self.user_room = {}
+
+        # user_id :nickname
         self.name = {}
+
+        # имя комноты  : user_id
         self.creators = {}
 
     def list_of_user_names(self, room_name):
@@ -16,8 +26,7 @@ class MemoryStorage:
     def quit_room(self, user_id):
         if user_id in self.user_room:
             name_room = self.user_room[user_id]
-            if self.room_members[name_room] != set():
-                self.room_members[name_room].discard(user_id)
+            self.room_members[name_room].discard(user_id)
 
     def get_room_members(self, room_name):
         return self.room_members[room_name]
@@ -53,35 +62,35 @@ class MemoryStorage:
         if user_id not in self.user_room:
             raise NotInRoom("Вы не в комнате")
 
-        self.user_room.pop(user_id)
-
         self.room_members[self.user_room_by_id(user_id)].discard(user_id)
+
+        self.user_room.pop(user_id)
 
         return self.name[user_id]
 
     def list(self):
-        list_of_message = []
-        check_list = []
-        for key in self.room_members.keys():
-            if self.room_visibility[key] == True:
-                check_list.append(key)
-                l = []
-                if self.room_members[key] == set():
-                    l = []
-                    l.append(f"{key}: Пусто")
-                else:
-                    for c in self.room_members[key]:
-                        l.append(self.name[c])
-            return l
+        l = []
+        for key, value in self.room_visibility.items():
+            if value:
+                l.append(key)
+        return l
 
-    # "#" перенести
     def delete_room(self, room_name, user_id):
+        list_of_id = []
         if room_name not in self.creators:
             raise RoomDoesNotExist("Нет такой комнаты")
         if self.creators[room_name] != user_id:
             raise NoCreator("Вы не создатель")
+        for key in self.user_room.keys():
+            if self.user_room[key] == room_name:
+                list_of_id.append(key)
+        for key in list_of_id:
+            self.user_room.pop(key)
+
         self.creators.pop(room_name)
         self.room_members.pop(room_name)
+        self.room_visibility.pop(room_name)
+        return list_of_id
 
     def is_user_in_room(self, user_id):
 

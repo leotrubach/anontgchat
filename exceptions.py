@@ -4,6 +4,7 @@ class BotError(Exception):
 
 
 class CommandParseError(BotError):
+
     pass
 
 
