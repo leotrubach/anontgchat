@@ -15,6 +15,7 @@ from decorators import parse_2_args, parse_1_arg
 from data import VISIBILITY
 from data import VISIBILITY_LABELS
 from storage.memory import MemoryStorage
+from messages import WELCOME_MESSAGE
 
 dotenv.load_dotenv()
 TOKEN = getenv("BOT_TOKEN")
@@ -34,8 +35,6 @@ async def send_to_chat(room_name: str, skip_user: int, message: str):
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    from messages import WELCOME_MESSAGE
-
     await message.answer(WELCOME_MESSAGE)
 
 
@@ -113,11 +112,26 @@ async def cmd_part(message: Message):
 @dp.message(Command("list"))
 @parse_1_arg
 async def cmd_list(message: Message):
-    l = storage.list()
-    k = ", ".join(l)
-    if not k:
+    list_of_rooms = storage.list()
+    str_rooms = ", ".join(list_of_rooms)
+    if not str_rooms:
         raise CommandParseError("Нет открытых комнат")
-    await message.answer(k)
+    await message.answer(str_rooms)
+
+
+@dp.message(Command("kiсk"))
+@parse_2_args
+async def cmd_kiсk(message: Message, command: CommandObject):
+    if not command.args:
+        raise CommandParseError("Не передан аргумент")
+    user_id = message.from_user.id
+    user_nick, *access = command.args.split()
+    storage.kick_user(user_id, user_nick)
+    message = "Вы были выгнаны создателем комнаты"
+    await send_to_chat(
+        storage.user_room_by_id(user_id),
+        user_id,
+    )
 
 
 @dp.message()
