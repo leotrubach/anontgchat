@@ -66,7 +66,7 @@ async def cmd_join(message: Message, command: CommandObject):
     room_name, *access = command.args.split()
 
     nick = storage.join(room_name, user_id)
-    x = storage.list_of_user_names_by_room_name(room_name)
+    x = storage.user_room_by_id(room_name)
     full_user_names = ", ".join(x)
     if len(x) == 1:
         full_user_names = "Только <b>вы</b>"

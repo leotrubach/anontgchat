@@ -35,6 +35,8 @@ class MemoryStorage:
 
     def get_room_members(self, room_name) -> str:
         """возвращает id всех учасников в комнате"""
+        if self.room_members == {}:
+            raise RoomDoesNotExist("Нет такой комнаты")
         return self.room_members[room_name]
 
     def create(self, is_public, room_name, user_id) -> None:
@@ -50,18 +52,11 @@ class MemoryStorage:
         self.room_members[room_name] = set()
         self.creators[room_name] = user_id
         self.room_visibility[room_name] = is_public
+        return self.room_visibility[room_name]
 
     def user_room_by_id(self, user_id) -> dict:
-        """Возвращает имя комнаты где находится учасник """
+        """Возвращает имя комнаты где находится учасник"""
         return self.user_room[user_id]
-
-
-
-    def list_of_user_names_by_room_name(self, room_name) -> list:
-        """Возвращает список ников из комнаты """
-        return self.list_of_user_names(room_name)
-
-
 
     def gen_nick(self, user_id) -> dict:
         """Генерирует ник и добавляет в словарь"""
@@ -70,18 +65,16 @@ class MemoryStorage:
         self.name1[nick] = user_id
         return self.name
 
-
-
     def join(self, room_name, user_id) -> str:
         """Добавляет участника в комноту
 
-            Проверяет есть ли такая комната.(Выдает ошибку)
-            Выходит из всех комнат.(Если до этого он был в другой)
-            В словаре room_members добавляется в set  id пользователя
-            В словаре user_room создается id пользователя со значением именем комнаты
-            Добавляется сгенерированый ник
-            Возвращает ник пользователя
-            """
+        Проверяет есть ли такая комната.(Выдает ошибку)
+        Выходит из всех комнат.(Если до этого он был в другой)
+        В словаре room_members добавляется в set  id пользователя
+        В словаре user_room создается id пользователя со значением именем комнаты
+        Добавляется сгенерированый ник
+        Возвращает ник пользователя
+        """
         if room_name not in self.room_members:
             raise RoomDoesNotExist("Нет такой комнаты")
         self.quit_room(user_id)
@@ -90,15 +83,13 @@ class MemoryStorage:
         self.gen_nick(user_id)
         return self.name[user_id]
 
-
-
     def part(self, user_id) -> str:
         """Выход из комнаты
 
-            Проверяет в комнате ли пользователь.(Выдает ошибку)
-            Удоляет пользователя из словаря room_members и user_room по id
-            Возвращяет никнейм
-            """
+        Проверяет в комнате ли пользователь.(Выдает ошибку)
+        Удоляет пользователя из словаря room_members и user_room по id
+        Возвращяет никнейм
+        """
 
         if user_id not in self.user_room:
             raise NotInRoom("Вы не в комнате")
@@ -109,8 +100,6 @@ class MemoryStorage:
 
         return self.name[user_id]
 
-
-
     def list(self) -> list:
         """Возвраящает список комнат"""
         l = []
@@ -119,14 +108,12 @@ class MemoryStorage:
                 l.append(key)
         return l
 
-
-
     def delete_room(self, room_name, user_id) -> list:
         """Удаление комнаты
 
-            Проверяет есть ли комната.(Выдает ошибку)
-            Удоляет пользователя из user_room,creators,room_members (пропадает комната),room_visibility
-            """
+        Проверяет есть ли комната.(Выдает ошибку)
+        Удоляет пользователя из user_room,creators,room_members (пропадает комната),room_visibility
+        """
         list_of_id = []
         if room_name not in self.creators:
             raise RoomDoesNotExist("Нет такой комнаты")
@@ -144,24 +131,18 @@ class MemoryStorage:
         self.room_visibility.pop(room_name)
         return list_of_id
 
-
-
     def kick_user(self, user_id, user_nick) -> None:
         """
-            Если вы не создатель выдает ошибку
-            Удаление пользователя из set() в room_members
-            """
+        Если вы не создатель выдает ошибку
+        Удаление пользователя из set() в room_members
+        """
         if self.creators[self.user_room[user_id]] != user_id:
             raise NoCreator("Вы не создатель комнаты")
         room_name = self.user_room[self.name1[user_nick]]
         self.room_members[room_name].discard(self.name1[user_nick])
-
-
 
     def is_user_in_room(self, user_id) -> str:
         """Проверяет находится ли пользователь в комнате проо отправке сообщения"""
         if user_id not in self.user_room:
             raise NotInRoom("Вы не в комнате")
         return self.name[user_id]
-
-
