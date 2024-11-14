@@ -126,6 +126,7 @@ async def cmd_kiсk(message: Message, command: CommandObject):
         raise CommandParseError("Не передан аргумент")
     user_id = message.from_user.id
     user_nick, *access = command.args.split()
+
     storage.kick_user(user_id, user_nick)
     message = "Вы были выгнаны создателем комнаты"
     await send_to_chat(
