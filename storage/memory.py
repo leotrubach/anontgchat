@@ -21,7 +21,7 @@ class MemoryStorage:
         self.creators = {}
 
         # nickname : user_id
-        self.name1 = {}
+        self.name_reverse = {}
 
     def list_of_user_names(self, room_name) -> list:
         """Возвращает список никнеймов"""
@@ -62,7 +62,7 @@ class MemoryStorage:
         """Генерирует ник и добавляет в словарь"""
         nick = generate_nick()
         self.name[user_id] = nick
-        self.name1[nick] = user_id
+        self.name_reverse[nick] = user_id
         return self.name
 
     def join(self, room_name, user_id) -> str:
@@ -138,8 +138,8 @@ class MemoryStorage:
         """
         if self.creators[self.user_room[user_id]] != user_id:
             raise NoCreator("Вы не создатель комнаты")
-        room_name = self.user_room[self.name1[user_nick]]
-        self.room_members[room_name].discard(self.name1[user_nick])
+        room_name = self.user_room[self.name_reverse[user_nick]]
+        self.room_members[room_name].discard(self.name_reverse[user_nick])
 
     def is_user_in_room(self, user_id) -> str:
         """Проверяет находится ли пользователь в комнате проо отправке сообщения"""
