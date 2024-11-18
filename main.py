@@ -9,12 +9,12 @@ from aiogram.filters.command import CommandObject
 from aiogram.types import Message
 from aiogram.filters import Command
 import dotenv
-
+import json
 from exceptions import CommandParseError
 from decorators import parse_2_args, parse_1_arg
 from data import VISIBILITY
 from data import VISIBILITY_LABELS
-from storage.memory import MemoryStorage
+from storage.json_storage import JsonStorage
 from messages import WELCOME_MESSAGE
 
 dotenv.load_dotenv()
@@ -23,7 +23,7 @@ TOKEN = getenv("BOT_TOKEN")
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
 dp = Dispatcher()
-storage = MemoryStorage()
+storage = JsonStorage()
 
 
 async def send_to_chat(room_name: str, skip_user: int, message: str):
@@ -66,7 +66,7 @@ async def cmd_join(message: Message, command: CommandObject):
     room_name, *access = command.args.split()
 
     nick = storage.join(room_name, user_id)
-    x = storage.user_room_by_id(room_name)
+    x = list(map(storage.get_nick, storage.get_room_members(room_name)))
     full_user_names = ", ".join(x)
     if len(x) == 1:
         full_user_names = "Только <b>вы</b>"
@@ -99,7 +99,6 @@ async def delete(message: Message, command: CommandObject):
 @parse_1_arg
 async def cmd_part(message: Message):
     user_id = message.from_user.id
-
     room_name_part = storage.user_room_by_id(user_id)
 
     mes = storage.part(user_id)
