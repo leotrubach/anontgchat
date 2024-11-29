@@ -14,7 +14,7 @@ from exceptions import CommandParseError
 from decorators import parse_2_args, parse_1_arg
 from data import VISIBILITY
 from data import VISIBILITY_LABELS
-from storage.json_storage import JsonStorage
+from storage.data_base_storage import DataBaseStorage
 from messages import WELCOME_MESSAGE
 
 dotenv.load_dotenv()
@@ -23,7 +23,7 @@ TOKEN = getenv("BOT_TOKEN")
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
 dp = Dispatcher()
-storage = JsonStorage()
+storage = DataBaseStorage()
 
 
 async def send_to_chat(room_name: str, skip_user: int, message: str):
