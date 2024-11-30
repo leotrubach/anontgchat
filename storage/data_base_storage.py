@@ -17,18 +17,9 @@ class DataBaseStorage:
         with self.connection.cursor() as cur:
             cur.execute(command)
 
-    # def list_of_user_names(self, room_name) -> list:
-    #     """Возвращает список никнеймов"""
-    #     return [self.name[user_id] for user_id in self.room_members[room_name]]
-
-    def quit_room(self, user_id) -> None:
-        """удоляет участника из комнаты"""
-        with self.connection.cursor() as cur:
-            cur.execute(f"DELETE FROM room_members WHERE user_id = {user_id}")
-
     def get_room_members(self, room_name) -> list:
         """возвращает id всех учасников в комнате"""
-        cur = self.select_data(f"SELECT True FROM room WHERE name = {room_name}")
+        cur = self.select_data(f"SELECT 1 FROM room WHERE name = {room_name}")
         if not cur:
             raise RoomDoesNotExist("Нет такой комнаты")
 
@@ -53,7 +44,12 @@ class DataBaseStorage:
         В словаре creators создается имя комноты со значением user_id
         В словаре room_visibility создается имя комноты со значением True or False
         """
-        cur = self.select_data(f"SELECT True FROM room WHERE name = {room_name}")
+        with self.connection.cursor() as cur:
+            cur.execute(
+                "CREATE TABLE IF NOT EXISTS room(id SERIAL PRIMARY KEY,name TEXT NOT NULL,creator_user_id integer NOT NULL,is_private BOOLEAN)"
+            )
+
+        cur = self.select_data(f"SELECT 1 FROM room WHERE name = {room_name}")
         if cur:
             raise RoomAlreadyExists("Уже есть комната с таким названием")
 
@@ -68,9 +64,7 @@ class DataBaseStorage:
 
     def user_room_by_id(self, user_id: int) -> dict:
         """Возвращает имя комнаты где находится учасник"""
-        cur = self.select_data(
-            f"SELECT True FROM room_members WHERE user_id = {user_id}"
-        )
+        cur = self.select_data(f"SELECT 1 FROM room_members WHERE user_id = {user_id}")
         if not cur:
             raise NotInRoom("Вы не в комнате")
 
@@ -83,14 +77,6 @@ class DataBaseStorage:
             f"SELECT nickname.nick FROM nickname WHERE user_id = {user_id}"
         )
 
-    def gen_nick(self, user_id) -> None:
-        """Генерирует ник и добавляет в базу данных"""
-        nick = generate_nick()
-        self.data(
-            f"INSERT INTO nickname ( user_id , nick ) VALUES ( {user_id}, {nick} )"
-        )
-        # return self.name
-
     def join(self, room_name, user_id) -> str:
         """Добавляет участника в комноту
 
@@ -101,11 +87,16 @@ class DataBaseStorage:
         Добавляется сгенерированый ник
         Возвращает ник пользователя
         """
-        cur = self.select_data(f"SELECT True FROM room WHERE name = {room_name}")
+        with self.connection.cursor() as cur:
+            cur.execute(
+                "CREATE TABLE IF NOT EXISTS room_members (id SERIAL REFERENCES room ( id ), user_id integer NOT NULL)"
+            )
+        cur = self.select_data(f"SELECT 1 FROM room WHERE name = {room_name}")
         if not cur:
             raise RoomDoesNotExist("Нет такой комнаты")
 
-        self.quit_room(user_id)
+        with self.connection.cursor() as cur:
+            cur.execute(f"DELETE FROM room_members WHERE user_id = {user_id}")
 
         room_id = self.select_data(f"SELECT room.id FROM room WHERE name = {room_name}")
 
@@ -113,7 +104,14 @@ class DataBaseStorage:
             f"INSERT INTO room_members (room_id, user_id)  VALUES ({room_id}, {user_id})"
         )
 
-        self.gen_nick(user_id)
+        with self.connection.cursor() as cur:
+            cur.execute(
+                "CREATE TABLE IF NOT EXISTS nickname (user_id integer NOT NULL,nick TEXT NOT NULL)"
+            )
+        nick = generate_nick()
+        self.data(
+            f"INSERT INTO nickname ( user_id , nick ) VALUES ( {user_id}, {nick} )"
+        )
 
         return self.select_data(
             f"SELECT nickname.nick FROM nickname WHERE user_id = {user_id}"
@@ -127,9 +125,7 @@ class DataBaseStorage:
         Возвращяет никнейм
         """
 
-        cur = self.select_data(
-            f"SELECT True FROM room_members WHERE user_id = {user_id}"
-        )
+        cur = self.select_data(f"SELECT 1 FROM room_members WHERE user_id = {user_id}")
         if not cur:
             raise NotInRoom("Вы не в комнате")
 
@@ -155,12 +151,12 @@ class DataBaseStorage:
         """
         list_of_id = []
 
-        cur = self.select_data(f"SELECT True FROM room WHERE name = {room_name}")
+        cur = self.select_data(f"SELECT 1 FROM room WHERE name = {room_name}")
         if not cur:
             raise RoomDoesNotExist("Нет такой комнаты")
 
         cur = self.select_data(
-            f"SELECT True FROM room WHERE creator_user_id = {user_id} AND name = {room_name}"
+            f"SELECT 1 FROM room WHERE creator_user_id = {user_id} AND name = {room_name}"
         )
         if not cur:
             raise NoCreator("Вы не создатель")
@@ -186,9 +182,7 @@ class DataBaseStorage:
         Если вы не создатель выдает ошибку
         Удаление пользователя из set() в room_members
         """
-        cur = self.select_data(
-            f"SELECT True FROM room WHERE creator_user_id = {user_id}"
-        )
+        cur = self.select_data(f"SELECT 1 FROM room WHERE creator_user_id = {user_id}")
         if not cur:
             raise NoCreator("Вы не создатель")
         v = self.select_data(
@@ -199,9 +193,7 @@ class DataBaseStorage:
 
     def is_user_in_room(self, user_id) -> str:
         """Проверяет находится ли пользователь в комнате проо отправке сообщения"""
-        cur = self.select_data(
-            f"SELECT True FROM room_members WHERE user_id = {user_id}"
-        )
+        cur = self.select_data(f"SELECT 1 FROM room_members WHERE user_id = {user_id}")
         if not cur:
             raise NotInRoom("Вы не в комнате")
 
