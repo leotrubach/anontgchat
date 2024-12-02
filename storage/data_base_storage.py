@@ -8,14 +8,14 @@ class DataBaseStorage:
         "postgres://postgres:Arkasha2007@127.0.0.1:5432/postgres"
     )
 
-    def select_data(self, command: str):
+    def select_data(self, command: str, params: tuple):
         with self.connection.cursor() as cur:
-            cur.execute(command)
+            cur.execute(command, params)
             return cur.fetchall()
 
-    def data(self, command: str):
+    def data(self, command: str, params: tuple):
         with self.connection.cursor() as cur:
-            cur.execute(command)
+            cur.execute(command, params)
 
     def get_room_members(self, room_name) -> list:
         """возвращает id всех учасников в комнате"""
@@ -149,7 +149,9 @@ class DataBaseStorage:
         """Возвраящает список комнат"""
 
         x = []
-        v = self.select_data("SELECT room.name FROM room WHERE is_private = True ")
+        with self.connection.cursor() as cur:
+            cur.execute("SELECT room.name FROM room WHERE is_private = True ")
+            v = cur.fetchall()
         for i in v:
             x.append(i[0])
         return x
@@ -204,7 +206,7 @@ class DataBaseStorage:
             f"SELECT nickname.user_id FROM nickname WHERE nick = %s", (user_id,)
         )
 
-        self.data(f"DELETE FROM room_members WHERE user_id = %s "), (v,)
+        self.data(f"DELETE FROM room_members WHERE user_id = %s ", (v,))
 
     def is_user_in_room(self, user_id) -> str:
         """Проверяет находится ли пользователь в комнате проо отправке сообщения"""
