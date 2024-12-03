@@ -118,20 +118,16 @@ async def cmd_list(message: Message):
     await message.answer(str_rooms)
 
 
-@dp.message(Command("kiсk"))
+@dp.message(Command("kick"))
 @parse_2_args
 async def cmd_kiсk(message: Message, command: CommandObject):
     if not command.args:
         raise CommandParseError("Не передан аргумент")
     user_id = message.from_user.id
     user_nick, *access = command.args.split()
-
-    storage.kick_user(user_id, user_nick)
     message = "Вы были выгнаны создателем комнаты"
-    await send_to_chat(
-        storage.user_room_by_id(user_id),
-        user_id,
-    )
+    await send_to_chat(storage.user_room_by_id(user_id), user_id, message)
+    storage.kick_user(user_id, user_nick, access[0])
 
 
 @dp.message()

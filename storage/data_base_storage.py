@@ -4,9 +4,23 @@ import psycopg
 
 
 class DataBaseStorage:
-    connection = psycopg.connect(
-        "postgres://postgres:Arkasha2007@127.0.0.1:5432/postgres"
-    )
+    def __init__(self):
+
+        self.connection = psycopg.connect(
+            "postgres://postgres:Arkasha2007@127.0.0.1:5432/postgres"
+        )
+        self.connection.autocommit = True
+
+        with self.connection.cursor() as cur:
+            cur.execute(
+                "CREATE TABLE IF NOT EXISTS room(id SERIAL PRIMARY KEY,name TEXT NOT NULL,creator_user_id integer NOT NULL,is_private BOOLEAN)"
+            )
+            cur.execute(
+                "CREATE TABLE IF NOT EXISTS room_members (id SERIAL REFERENCES room ( id ), user_id integer NOT NULL)"
+            )
+            cur.execute(
+                "CREATE TABLE IF NOT EXISTS nickname (user_id integer NOT NULL,nick TEXT NOT NULL)"
+            )
 
     def select_data(self, command: str, params: tuple):
         with self.connection.cursor() as cur:
@@ -25,7 +39,7 @@ class DataBaseStorage:
 
         x = []
         v = self.select_data(
-            f"SELECT room_members.user_id FROM room_members JOIN room ON room_members.room_id = room.id WHERE room.name = %s",
+            f"SELECT room_members.user_id FROM room_members JOIN room ON room_members.id = room.id WHERE room.name = %s",
             (room_name,),
         )
         for i in v:
@@ -35,7 +49,7 @@ class DataBaseStorage:
     def get_user_create(self, room_name):
         return self.select_data(
             f"SELECT room.creator_user_id FROM room WHERE name = %s", (room_name,)
-        )
+        )[0][0]
 
     def create(self, is_public, room_name, user_id) -> None:
         """Создание комноты.
@@ -50,6 +64,10 @@ class DataBaseStorage:
                 "CREATE TABLE IF NOT EXISTS room(id SERIAL PRIMARY KEY,name TEXT NOT NULL,creator_user_id integer NOT NULL,is_private BOOLEAN)"
             )
 
+        with self.connection.cursor() as cur:
+            cur.execute(
+                "CREATE TABLE IF NOT EXISTS room_members (id SERIAL REFERENCES room ( id ), user_id integer NOT NULL)"
+            )
         cur = self.select_data(f"SELECT 1 FROM room WHERE name = %s", (room_name,))
         if cur:
             raise RoomAlreadyExists("Уже есть комната с таким названием")
@@ -65,7 +83,7 @@ class DataBaseStorage:
             (room_name,),
         )
 
-    def user_room_by_id(self, user_id: int) -> dict:
+    def user_room_by_id(self, user_id: int) -> str:
         """Возвращает имя комнаты где находится учасник"""
         cur = self.select_data(
             f"SELECT 1 FROM room_members WHERE user_id = %s", (user_id,)
@@ -73,15 +91,19 @@ class DataBaseStorage:
         if not cur:
             raise NotInRoom("Вы не в комнате")
 
-        return self.select_data(
-            f"SELECT room.name FROM room_members JOIN room ON room.id = room_members.room_id WHERE user_id = %s",
+        x = self.select_data(
+            f"SELECT room.name FROM room_members JOIN room ON room.id = room_members.id WHERE user_id = %s",
             (user_id,),
-        )
+        )[0][0]
 
-    def get_nick(self, user_id: int) -> dict:
-        return self.select_data(
+        return x
+
+    def get_nick(self, user_id: int) -> list:
+
+        x = self.select_data(
             f"SELECT nickname.nick FROM nickname WHERE user_id = %s", (user_id,)
-        )
+        )[0][0]
+        return x
 
     def join(self, room_name, user_id) -> str:
         """Добавляет участника в комноту
@@ -93,10 +115,6 @@ class DataBaseStorage:
         Добавляется сгенерированый ник
         Возвращает ник пользователя
         """
-        with self.connection.cursor() as cur:
-            cur.execute(
-                "CREATE TABLE IF NOT EXISTS room_members (id SERIAL REFERENCES room ( id ), user_id integer NOT NULL)"
-            )
         cur = self.select_data(f"SELECT 1 FROM room WHERE name = %s", (room_name,))
         if not cur:
             raise RoomDoesNotExist("Нет такой комнаты")
@@ -107,24 +125,17 @@ class DataBaseStorage:
         room_id = self.select_data(
             f"SELECT room.id FROM room WHERE name = %s", (room_name,)
         )
-
         self.data(
-            f"INSERT INTO room_members (room_id, user_id)  VALUES (%s,%s)",
-            (room_id, user_id),
+            f"INSERT INTO room_members (id, user_id)  VALUES (%s,%s)",
+            (room_id[0][0], user_id),
         )
+        self.data(f"DELETE FROM nickname WHERE user_id =%s", (user_id,))
 
-        with self.connection.cursor() as cur:
-            cur.execute(
-                "CREATE TABLE IF NOT EXISTS nickname (user_id integer NOT NULL,nick TEXT NOT NULL)"
-            )
         nick = generate_nick()
         self.data(
             "INSERT INTO nickname (user_id, nick) VALUES (%s, %s)", (user_id, nick)
         )
-
-        return self.select_data(
-            f"SELECT nickname.nick FROM nickname WHERE user_id = %s", (user_id,)
-        )
+        return nick
 
     def part(self, user_id) -> str:
         """Выход из комнаты
@@ -143,7 +154,7 @@ class DataBaseStorage:
         self.data(f"DELETE FROM room_members WHERE user_id = %s", (user_id,))
         return self.select_data(
             f"SELECT nickname.nick FROM nickname WHERE user_id = %s", (user_id,)
-        )
+        )[0][0]
 
     def list(self) -> list:
         """Возвраящает список комнат"""
@@ -175,37 +186,49 @@ class DataBaseStorage:
         if not cur:
             raise NoCreator("Вы не создатель")
 
-        with self.connection.cursor() as cur:
-            cur.execute(f"DELETE FROM room WHERE name = %s", (room_name,))
-        room_id = self.select_data(
-            f"SELECT room.id FROM room WHERE room.name= %s", (room_name,)
-        )
-
+        room_id = next(
+            iter(
+                self.select_data(
+                    f"SELECT room.id FROM room WHERE room.name= %s", (room_name,)
+                )
+            )
+        )[0]
         x = self.select_data(
-            f"SELECT room_members.user_id FROM room_members WHERE room_id = %s",
+            f"SELECT room_members.user_id FROM room_members WHERE id = %s",
             (room_id,),
         )
-
         for b in x:
             list_of_id.append(b[0])
-        self.data(f"DELETE FROM room_members WHERE room_id =%s", (room_id,))
-
+        self.data(f"DELETE FROM room_members WHERE id =%s", (room_id,))
+        with self.connection.cursor() as cur:
+            cur.execute(f"DELETE FROM room WHERE name = %s", (room_name,))
         return list_of_id
 
-    def kick_user(self, user_id, user_nick) -> None:
+    def kick_user(self, user_id, user_nick, access) -> None:
         """
         Если вы не создатель выдает ошибку
         Удаление пользователя из set() в room_members
         """
-        cur = self.select_data(
-            f"SELECT 1 FROM room WHERE creator_user_id = %s", (user_id,)
-        )
-        if not cur:
+        room_id_by_room_members = list(
+            next(
+                iter(
+                    self.select_data(
+                        f"SELECT room_members.id FROM room_members WHERE user_id = %s",
+                        (user_id,),
+                    )
+                )
+            )
+        )[0]
+        creator_user_id_by_room = self.select_data(
+            f"SELECT room.creator_user_id FROM room WHERE id = %s",
+            (room_id_by_room_members,),
+        )[0][0]
+        if user_id != creator_user_id_by_room:
             raise NoCreator("Вы не создатель")
+        user_nick = f"{user_nick} {access}"
         v = self.select_data(
-            f"SELECT nickname.user_id FROM nickname WHERE nick = %s", (user_id,)
-        )
-
+            f"SELECT nickname.user_id FROM nickname WHERE nick = %s", (user_nick,)
+        )[0][0]
         self.data(f"DELETE FROM room_members WHERE user_id = %s ", (v,))
 
     def is_user_in_room(self, user_id) -> str:
@@ -218,4 +241,4 @@ class DataBaseStorage:
 
         return self.select_data(
             f"SELECT nickname.nick FROM nickname WHERE user_id = %s", (user_id,)
-        )
+        )[0][0]
