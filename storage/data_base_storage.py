@@ -204,7 +204,7 @@ class DataBaseStorage:
             cur.execute(f"DELETE FROM room WHERE name = %s", (room_name,))
         return list_of_id
 
-    def kick_user(self, user_id, user_nick, access) -> None:
+    def kick_user(self, user_id, user_nick) -> None:
         """
         Если вы не создатель выдает ошибку
         Удаление пользователя из set() в room_members
@@ -225,7 +225,6 @@ class DataBaseStorage:
         )[0][0]
         if user_id != creator_user_id_by_room:
             raise NoCreator("Вы не создатель")
-        user_nick = f"{user_nick} {access}"
         v = self.select_data(
             f"SELECT nickname.user_id FROM nickname WHERE nick = %s", (user_nick,)
         )[0][0]

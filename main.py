@@ -14,7 +14,7 @@ from exceptions import CommandParseError
 from decorators import parse_2_args, parse_1_arg
 from data import VISIBILITY
 from data import VISIBILITY_LABELS
-from storage.data_base_by_SQLite import DataBaseStorageBySQLite
+from storage.data_base_storage import DataBaseStorage
 from messages import WELCOME_MESSAGE
 
 dotenv.load_dotenv()
@@ -23,7 +23,7 @@ TOKEN = getenv("BOT_TOKEN")
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
 dp = Dispatcher()
-storage = DataBaseStorageBySQLite()
+storage = DataBaseStorage()
 
 
 async def send_to_chat(room_name: str, skip_user: int, message: str):
@@ -125,9 +125,11 @@ async def cmd_kiсk(message: Message, command: CommandObject):
         raise CommandParseError("Не передан аргумент")
     user_id = message.from_user.id
     user_nick, *access = command.args.split()
+    user_nick = f"{user_nick} {access[0]}"
+    storage.no_creator(user_id)
     message = "Вы были выгнаны создателем комнаты"
     await send_to_chat(storage.user_room_by_id(user_id), user_id, message)
-    storage.kick_user(user_id, user_nick, access[0])
+    storage.kick_user(user_id, user_nick)
 
 
 @dp.message()

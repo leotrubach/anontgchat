@@ -1,5 +1,6 @@
 from data import generate_nick
 from exceptions import RoomDoesNotExist, RoomAlreadyExists, NotInRoom, NoCreator
+import json
 
 
 class MemoryStorage:
@@ -56,6 +57,7 @@ class MemoryStorage:
 
     def user_room_by_id(self, user_id) -> dict:
         """Возвращает имя комнаты где находится учасник"""
+
         return self.user_room[user_id]
 
     def gen_nick(self, user_id) -> dict:
@@ -64,6 +66,9 @@ class MemoryStorage:
         self.name[user_id] = nick
         self.name_reverse[nick] = user_id
         return self.name
+
+    def get_nick(self, user_id):
+        return self.name[user_id]
 
     def join(self, room_name, user_id) -> str:
         """Добавляет участника в комноту

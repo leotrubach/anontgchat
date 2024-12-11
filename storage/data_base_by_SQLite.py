@@ -8,7 +8,9 @@ import sqlite3
 class DataBaseStorageBySQLite:
     def __init__(self):
 
-        self.connection = sqlite3.connect("database.db")
+        self.connection = sqlite3.connect(
+            "database_SQLite/database.db",
+        )
 
         with self.connection as conn:
             conn.execute("PRAGMA foreign_keys = ON")
@@ -157,6 +159,24 @@ class DataBaseStorageBySQLite:
         self.data("INSERT INTO nickname (user_id, nick) VALUES (?, ?)", (user_id, nick))
         return nick
 
+    def no_creator(self, user_id):
+        room_id_by_room_members = list(
+            next(
+                iter(
+                    self.select_data(
+                        f"SELECT room_members.id FROM room_members WHERE user_id = ?",
+                        (user_id,),
+                    )
+                )
+            )
+        )[0]
+        creator_user_id_by_room = self.select_data(
+            f"SELECT room.creator_user_id FROM room WHERE id = ?",
+            (room_id_by_room_members,),
+        )[0][0]
+        if user_id != creator_user_id_by_room:
+            raise NoCreator("Вы не создатель")
+
     def part(self, user_id) -> str:
         """Выход из комнаты
 
@@ -226,7 +246,7 @@ class DataBaseStorageBySQLite:
             cur.execute(f"DELETE FROM room WHERE name = ?", (room_name,))
         return list_of_id
 
-    def kick_user(self, user_id, user_nick, access) -> None:
+    def kick_user(self, user_id, user_nick) -> None:
         """
         Если вы не создатель выдает ошибку
         Удаление пользователя из set() в room_members
@@ -247,7 +267,6 @@ class DataBaseStorageBySQLite:
         )[0][0]
         if user_id != creator_user_id_by_room:
             raise NoCreator("Вы не создатель")
-        user_nick = f"{user_nick} {access}"
         v = self.select_data(
             f"SELECT nickname.user_id FROM nickname WHERE nick = ?", (user_nick,)
         )[0][0]

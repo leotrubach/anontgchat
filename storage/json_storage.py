@@ -24,7 +24,7 @@ class JsonStorage:
         self.creators = self.load_creators()
 
         # nickname : user_id
-        self.name_reverse = {}
+        self.name_reverse = self.load_name_reverse()
 
     def load_room_members(self):
         try:
@@ -133,6 +133,31 @@ class JsonStorage:
         with open(path, "w") as f:
             json.dump(self.name, f)
 
+    def save_name_reverse(self):
+        path = os.path.join(
+            "C:\\",
+            "Users",
+            "Гала",
+            "PycharmProjects",
+            "demo-tg-bot",
+            "jsons",
+            "name_reverse.json",
+        )
+        with open(path, "w") as f:
+            json.dump(self.name_reverse, f)
+
+    def load_name_reverse(self):
+        path = os.path.join(
+            "C:\\",
+            "Users",
+            "Гала",
+            "PycharmProjects",
+            "demo-tg-bot",
+            "jsons",
+            "name_reverse.json",
+        )
+        return self.load_dict(path)
+
     def load_name(self):
         path = os.path.join(
             "C:\\",
@@ -228,6 +253,7 @@ class JsonStorage:
         self.name_reverse[nick] = user_id
 
         self.save_name()
+        self.save_name_reverse()
         return self.name
 
     def join(self, room_name, user_id) -> str:
@@ -306,6 +332,10 @@ class JsonStorage:
         self.save_user_room()
         return list_of_id
 
+    def no_creator(self, user_id):
+        if self.creators[self.user_room[user_id]] != user_id:
+            raise NoCreator("Вы не создатель комнаты")
+
     def kick_user(self, user_id, user_nick) -> None:
         """
         Если вы не создатель выдает ошибку
@@ -315,8 +345,10 @@ class JsonStorage:
             raise NoCreator("Вы не создатель комнаты")
         room_name = self.user_room[self.name_reverse[user_nick]]
         self.room_members[room_name].discard(self.name_reverse[user_nick])
-
+        x = self.name_reverse[user_nick]
+        self.user_room.pop(x)
         self.save_room_members()
+        self.save_user_room()
 
     def is_user_in_room(self, user_id) -> str:
         """Проверяет находится ли пользователь в комнате проо отправке сообщения"""
